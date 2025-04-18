@@ -7,11 +7,6 @@ import requests
 def get_timestamp():
     return str(round(datetime.datetime.now().timestamp(), 3))
 
-
-def parseMethodToken(test: str):
-    return test[test.find('methodToken=') + 12:test.find('&csComm')]
-
-
 class WeibanAPI:
     tenantCode = ''
     x_token = ' '
@@ -109,24 +104,40 @@ class WeibanAPI:
         }
         return self.process_url(url, data)
 
+    def getMethodToken(self, resource_id):
+        url = 'https://weiban.mycourse.cn/pharos/usercourse/getCaptcha.do'
+        params = {
+            'userCourseId': resource_id,
+            'userProjectId': self.userProjectId,
+            'userId': self.userId,
+            'tenantCode': self.tenantCode
+        }
+        res = requests.get(url, headers=self.headers, params=params).text.encode().decode('unicode_escape')
+        question_id = json.loads(res)['captcha']['questionId']
+
+        url = "https://weiban.mycourse.cn/pharos/usercourse/checkCaptcha.do"
+        params = {
+            "userCourseId": resource_id,
+            "userProjectId": self.userProjectId,
+            "userId": self.userId,
+            "tenantCode": self.tenantCode,
+            "questionId": question_id
+        }
+        data = {
+            "coordinateXYs": "[{\"x\":199,\"y\":448},{\"x\":241,\"y\":466},{\"x\":144,\"y\":429}]"
+        }
+
+        res = requests.post(url, headers=self.headers, params=params, data=data).text
+        return json.loads(res)['data']['methodToken']
+
+
     def getCourseUrl(self, resource_id):
-        ret = self._getCourseUrl(resource_id)
+        ret = self._getCourseUrl(resource_id).encode().decode('unicode_escape')
         try:
             j = json.loads(ret)
             return j["data"]
         except json.decoder.JSONDecodeError as e:
             print(e.msg)
-
-    def methodToken(self, method_token, user_course_id):
-        url = 'https://weiban.mycourse.cn/pharos/usercourse/v1/{}.do'.format(method_token)
-        t = get_timestamp().replace('.', '')
-        param = {
-            'callback': 'jQuery341' + str(random.random()).replace('.', '') + '_' + t,
-            'userCourseId': user_course_id,
-            'tenantCode': self.tenantCode,
-            '_': int(t) + 1
-        }
-        return self.process_url(url, param, 'GET')
 
     def study(self, resource_id):
         res = self._study(resource_id)
@@ -135,6 +146,24 @@ class WeibanAPI:
             return j["code"]
         except json.decoder.JSONDecodeError as e:
             print(e.msg)
+
+    def finish(self, resource_id, user_course_id):
+        courseUrl = self.getCourseUrl(resource_id)
+        token = self.getMethodToken(user_course_id)
+        url = 'https://weiban.mycourse.cn/pharos/usercourse/v2/{}.do'
+        t = get_timestamp().replace('.', '')
+        params = {
+            'callback': 'jQuery341' + str(random.random()).replace('.', '') + '_' + t,
+            'userCourseId': user_course_id,
+            'tenantCode': self.tenantCode,
+            '_': int(t) + 1
+        }
+
+        res = requests.get(url.format(token), params=params, headers=self.headers).text
+        if '"code":"-1"' in res:
+            res = requests.get(url.format(user_course_id), params=params, headers=self.headers).text
+        return res
+
 
     def _study(self, resource_id):
         url = 'https://weiban.mycourse.cn/pharos/usercourse/study.do?timestamp=' + get_timestamp()

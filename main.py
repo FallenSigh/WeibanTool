@@ -3,10 +3,10 @@ import json
 
 import weibanapi
 
-x_token = ''
-user_id = ''
-user_project_id = ''
-tenant_code = ''
+x_token = '3d32b406-c73c-42e1-9c69-ed882a5dc865'
+user_id = '967f15c5-2377-4992-bc1f-2e0b62536ff1'
+user_project_id = '1ffdc17a-543f-446d-bb58-a12e47a01ce0'
+tenant_code = '73000001'
 
 
 # 1.  showProgess 获取课程进度
@@ -61,15 +61,14 @@ def main():
         if code != '0':
             print('开始学习失败')
             exit(-1)
-        cUrl = w.getCourseUrl(resourceId)
-        token = weibanapi.parseMethodToken(cUrl)
-        # 学太快好像有可能学不上
+
+        # 学太快有可能学不上
         wait('等待中.......%2d', 15)
-        tmp = w.methodToken(token, userCourseId)
+        tmp = w.finish(resourceId, userCourseId)
         res = tmp[tmp.find('({') + 1:len(tmp) - 1]
         j = json.loads(res)
         if j["msg"] != "ok":
-            print('调用methodToken失败!')
+            print('error')
             exit(-1)
         wait('通过 %2d s后继续', 3)
 
